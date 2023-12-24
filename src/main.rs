@@ -580,8 +580,13 @@ impl cpu6502 {
         self.cycles = 8;
     }
 
-    fn fetch() -> u8 {
-        0
+    fn fetch(&mut self) -> u8 {
+        if !(self.lookup[self.opcode as usize].addr_mode == cpu::IMP)
+        {
+            self.fetched = self.read(self.addr_abs);
+        }
+
+        return self.fetched;
     }
 
     fn connect_bus(&mut self, bus: Rc<Bus>) {
