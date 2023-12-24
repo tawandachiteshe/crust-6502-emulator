@@ -207,19 +207,78 @@ impl cpu6502 {
         0
     }
     fn ABX(cpu: &mut cpu6502) -> u8 {
-        0
+
+        let lo = cpu.read(cpu.pc);
+        cpu.pc += 1;
+        let hi = cpu.read(cpu.pc);
+        cpu.pc += 1;
+
+        cpu.addr_abs = ((hi << 8) | lo) as u16;
+        cpu.addr_abs += cpu.x as u16;
+
+        if (cpu.addr_abs & 0xFF00) != (hi << 8) as u16 { 1 } else { 0 }
+
     }
+
+
     fn ABY(cpu: &mut cpu6502) -> u8 {
-        0
+        let lo = cpu.read(cpu.pc);
+        cpu.pc += 1;
+        let hi = cpu.read(cpu.pc);
+        cpu.pc += 1;
+
+        cpu.addr_abs = ((hi << 8) | lo) as u16;
+        cpu.addr_abs += cpu.y as u16;
+
+        if (cpu.addr_abs & 0xFF00) != (hi << 8) as u16 { 1 } else { 0 }
+
     }
+
     fn IND(cpu: &mut cpu6502) -> u8 {
+
+        let ptr_lo = cpu.read(cpu.pc);
+        cpu.pc += 1;
+        let ptr_hi = cpu.read(cpu.pc);
+        cpu.pc += 1;
+
+        let ptr = (ptr_hi << 8) | ptr_lo;
+
+        if ptr_lo == 0x00FF // Simulate page boundary hardware bug
+        {
+            cpu.addr_abs = ((cpu.read((ptr & 0xFFu8) as u16) << 8) | cpu.read((ptr + 0) as u16)) as u16;
+        }
+        else // Behave normally
+        {
+            cpu.addr_abs = ((cpu.read((ptr + 1) as u16) << 8) | cpu.read((ptr + 0) as u16)) as u16;
+        }
+
         0
     }
+
     fn IZX(cpu: &mut cpu6502) -> u8 {
+
+        let t = cpu.read(cpu.pc);
+        cpu.pc += 1;
+
+        let lo = cpu.read(((t + cpu.x) & 0x00FF) as u16);
+        let hi = cpu.read(((t + cpu.x + 1) & 0x00FF) as u16);
+
+        cpu.addr_abs = ((hi << 8) | lo) as u16;
+
         0
     }
     fn IZY(cpu: &mut cpu6502) -> u8 {
-        0
+
+        let t = cpu.read(cpu.pc);
+        cpu.pc += 1;
+
+        let lo = cpu.read((t & 0x00FF) as u16);
+        let hi = cpu.read(((t + 1) & 0x00FF) as u16);
+
+        cpu.addr_abs = ((hi << 8) | lo) as u16;
+        cpu.addr_abs += cpu.y as u16;
+
+        if (cpu.addr_abs & 0xFF00) != (hi << 8) as u16 { 1 } else { 0 }
     }
 
     //opcodes
