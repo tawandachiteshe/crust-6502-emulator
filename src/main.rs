@@ -6,30 +6,26 @@ type RamArray = [u8; 64 * 1024];
 struct Bus
 {
     ram: RamArray,
-    cpu: cpu6502
+    cpu: cpu6502,
 }
 
 impl Bus
 {
     fn new() -> Self {
-
         let cpu = cpu6502::new();
 
 
-
-        return Bus{
+        return Bus {
             ram: [0; 64 * 1024],
             cpu,
-        }
-        
+        };
     }
-    
+
     fn write(&mut self, addr: u16, data: u8)
     {
         if addr >= 0x0000 && addr <= 0xFFFF {
             self.ram[addr as usize] = data;
         }
-
     }
 
     fn read(&self, addr: u16, read_only: bool) -> u8
@@ -63,7 +59,7 @@ enum FLAGS6502 {
     N = (1 << 7), // Negative
 }
 
-type OperateFn = fn(&self::cpu6502) -> u8;
+type OperateFn = fn(&mut cpu6502) -> u8;
 type AddrModeFn = OperateFn;
 
 struct INSTRUCTION {
@@ -94,7 +90,7 @@ struct cpu6502 {
     lookup: Vec<INSTRUCTION>,
     bus: Rc<Bus>,
     clock_count: u32,
-    temp: u16
+    temp: u16,
 }
 
 type cpu = cpu6502;
@@ -133,14 +129,13 @@ impl cpu6502 {
             opcode: 0,
             cycles: 0,
             lookup: vec![],
-            bus: Rc::new(Bus::new() ),
+            bus: Rc::new(Bus::new()),
             clock_count: 0,
             temp: 0,
         };
     }
 
     fn get_flag(&self, f: FLAGS6502) -> u8 {
-
         let f = f as u8;
         if (self.status & f) > 0 { 1 } else { 0 }
     }
@@ -155,216 +150,251 @@ impl cpu6502 {
     }
 
     // Addressing Modes
-    fn IMP(&self) -> u8 {
+    fn IMP(cpu: &mut cpu6502) -> u8 {
+        cpu.fetched = cpu.a;
         0
     }
-    fn IMM(&self) -> u8 {
+    fn IMM(cpu: &mut cpu6502) -> u8 {
+
+        cpu.pc += 1u16;
+        cpu.addr_abs = cpu.pc;
         0
     }
-    fn ZP0(&self) -> u8 {
+    fn ZP0(cpu: &mut cpu6502) -> u8 {
+
+        cpu.addr_abs = cpu.read(cpu.pc) as u16;
+        cpu.pc += 1;
+        cpu.addr_abs &= 0x00FF;
+
         0
     }
-    fn ZPX(&self) -> u8 {
+
+    fn ZPX(cpu: &mut cpu6502) -> u8 {
+        cpu.addr_abs = (cpu.read(cpu.pc) + cpu.x) as u16;
+        cpu.pc += 1;
+        cpu.addr_abs &= 0x00FF;
+
+        return 0
+    }
+
+    fn ZPY(cpu: &mut cpu6502) -> u8 {
+
+        cpu.addr_abs = (cpu.read(cpu.pc) + cpu.y) as u16;
+        cpu.pc += 1;
+        cpu.addr_abs &= 0x00FF;
+
         0
     }
-    fn ZPY(&self) -> u8 {
+    fn REL(cpu: &mut cpu6502) -> u8 {
+
+        cpu.addr_rel = cpu.read(cpu.pc) as u16;
+        cpu.pc += 1;
+        if cpu.addr_rel & 0x80 != 0 {
+            cpu.addr_rel |= 0xFF00;
+        }
         0
     }
-    fn REL(&self) -> u8 {
+
+    fn ABS(cpu: &mut cpu6502) -> u8 {
+
+        let lo = cpu.read(cpu.pc);
+        cpu.pc += 1;
+        let hi = cpu.read(cpu.pc);
+        cpu.pc += 1;
+
+        cpu.addr_abs = ((hi << 8) | lo) as u16;
+
         0
     }
-    fn ABS(&self) -> u8 {
+    fn ABX(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn ABX(&self) -> u8 {
+    fn ABY(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn ABY(&self) -> u8 {
+    fn IND(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn IND(&self) -> u8 {
+    fn IZX(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn IZX(&self) -> u8 {
-        0
-    }
-    fn IZY(&self) -> u8 {
+    fn IZY(cpu: &mut cpu6502) -> u8 {
         0
     }
 
     //opcodes
-    fn ADC(&self) -> u8 {
+    fn ADC(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn AND(&self) -> u8 {
+    fn AND(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn ASL(&self) -> u8 {
+    fn ASL(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn BCC(&self) -> u8 {
+    fn BCC(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn BCS(&self) -> u8 {
+    fn BCS(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn BEQ(&self) -> u8 {
+    fn BEQ(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn BIT(&self) -> u8 {
+    fn BIT(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn BMI(&self) -> u8 {
+    fn BMI(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn BNE(&self) -> u8 {
+    fn BNE(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn BPL(&self) -> u8 {
+    fn BPL(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn BRK(&self) -> u8 {
+    fn BRK(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn BVC(&self) -> u8 {
+    fn BVC(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn BVS(&self) -> u8 {
+    fn BVS(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn CLC(&self) -> u8 {
+    fn CLC(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn CLD(&self) -> u8 {
+    fn CLD(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn CLI(&self) -> u8 {
+    fn CLI(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn CLV(&self) -> u8 {
+    fn CLV(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn CMP(&self) -> u8 {
+    fn CMP(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn CPX(&self) -> u8 {
+    fn CPX(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn CPY(&self) -> u8 {
+    fn CPY(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn DEC(&self) -> u8 {
+    fn DEC(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn DEX(&self) -> u8 {
+    fn DEX(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn DEY(&self) -> u8 {
+    fn DEY(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn EOR(&self) -> u8 {
+    fn EOR(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn INC(&self) -> u8 {
+    fn INC(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn INX(&self) -> u8 {
+    fn INX(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn INY(&self) -> u8 {
+    fn INY(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn JMP(&self) -> u8 {
+    fn JMP(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn JSR(&self) -> u8 {
+    fn JSR(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn LDA(&self) -> u8 {
+    fn LDA(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn LDX(&self) -> u8 {
+    fn LDX(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn LDY(&self) -> u8 {
+    fn LDY(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn LSR(&self) -> u8 {
+    fn LSR(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn NOP(&self) -> u8 {
+    fn NOP(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn ORA(&self) -> u8 {
+    fn ORA(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn PHA(&self) -> u8 {
+    fn PHA(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn PHP(&self) -> u8 {
+    fn PHP(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn PLA(&self) -> u8 {
+    fn PLA(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn PLP(&self) -> u8 {
+    fn PLP(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn ROL(&self) -> u8 {
+    fn ROL(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn ROR(&self) -> u8 {
+    fn ROR(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn RTI(&self) -> u8 {
+    fn RTI(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn RTS(&self) -> u8 {
+    fn RTS(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn SBC(&self) -> u8 {
+    fn SBC(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn SEC(&self) -> u8 {
+    fn SEC(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn SED(&self) -> u8 {
+    fn SED(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn SEI(&self) -> u8 {
+    fn SEI(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn STA(&self) -> u8 {
+    fn STA(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn STX(&self) -> u8 {
+    fn STX(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn STY(&self) -> u8 {
+    fn STY(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn TAX(&self) -> u8 {
+    fn TAX(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn TAY(&self) -> u8 {
+    fn TAY(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn TSX(&self) -> u8 {
+    fn TSX(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn TXA(&self) -> u8 {
+    fn TXA(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn TXS(&self) -> u8 {
+    fn TXS(cpu: &mut cpu6502) -> u8 {
         0
     }
-    fn TYA(&self) -> u8 {
+    fn TYA(cpu: &mut cpu6502) -> u8 {
         0
     }
 
     // I capture all "unofficial" opcodes with this function. It is
     // functionally identical to a NOP
-    fn XXX(&self) -> u8 {
+    fn XXX(cpu: &mut cpu6502) -> u8 {
         0
     }
 
@@ -394,7 +424,6 @@ impl cpu6502 {
 
             // Always set the unused status flag bit to 1
             self.set_flag(FLAGS6502::U, true);
-
         }
 
         // Increment global clock count - This is actually unused unless logging is enabled
@@ -403,7 +432,6 @@ impl cpu6502 {
 
         // Decrement the number of cycles remaining for this instruction
         self.cycles -= 1;
-
     }
 
     fn read(&self, address: u16) -> u8
@@ -441,26 +469,24 @@ impl cpu6502 {
 
         // Reset takes time
         self.cycles = 8;
-
     }
 
     fn irq(&mut self)
     {
-
         if (self.get_flag(FLAGS6502::I) == 0)
         {
             // Push the program counter to the stack. It's 16-bits dont
             // forget so that takes two pushes
-            self.write((0x0100u16 + self.stkp) , ((self.pc >> 8) & 0x00FF) as u8);
+            self.write((0x0100u16 + self.stkp as u16) , ((self.pc >> 8) & 0x00FF) as u8);
             self.stkp -= 1;
-            self.write((0x0100u16 + self.stkp) , (self.pc & 0x00FF) as u8);
+            self.write((0x0100u16 + self.stkp as u16) , (self.pc & 0x00FF) as u8);
             self.stkp -= 1;
 
             // Then Push the status register to the stack
             self.set_flag(FLAGS6502::B, false);
             self.set_flag(FLAGS6502::U, true);
             self.set_flag(FLAGS6502::I, true);
-            self.write(0x0100u16 + self.stkp, self.status);
+            self.write(0x0100u16 + self.stkp as u16, self.status);
             self.stkp -= 1;
 
             // Read new program counter location from fixed address
@@ -472,12 +498,27 @@ impl cpu6502 {
             // IRQs take time
             self.cycles = 7;
         }
-
     }
 
     fn nmi(&mut self)
     {
+        self.write(0x0100u16 + self.stkp as u16, ((self.pc >> 8) & 0x00FF) as u8);
+        self.stkp -= 1;
+        self.write(0x0100u16 + self.stkp as u16, (self.pc & 0x00FF) as u8);
+        self.stkp -= 1;
 
+        self.set_flag(FLAGS6502::B, false);
+        self.set_flag(FLAGS6502::U, true);
+        self.set_flag(FLAGS6502::I, true);
+        self.write(0x0100u16 + self.stkp as u16, self.status);
+        self.stkp -= 1;
+
+        self.addr_abs = 0xFFFA;
+        let lo = self.read(self.addr_abs + 0);
+        let hi = self.read(self.addr_abs + 1);
+        self.pc = ((hi << 8) | lo) as u16;
+
+        self.cycles = 8;
     }
 
     fn fetch() -> u8 {
