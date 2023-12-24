@@ -283,8 +283,33 @@ impl cpu6502 {
 
     //opcodes
     fn ADC(cpu: &mut cpu6502) -> u8 {
-        0
+        // Grab the data that we are adding to the accumulator
+        cpu.fetch();
+
+        // Add is performed in 16-bit domain for emulation to capture any
+        // carry bit, which will exist in bit 8 of the 16-bit word
+        cpu.temp = (cpu.a + cpu.fetched + cpu.get_flag(FLAGS6502::C)) as u16;
+
+        // The carry flag out exists in the high byte bit 0
+        cpu.set_flag(FLAGS6502::C, cpu.temp > 255);
+
+        // The Zero flag is set if the result is 0
+        cpu.set_flag(FLAGS6502::Z, (cpu.temp & 0x00FF) == 0);
+
+        // The signed Overflow flag is set based on all that up there! :D
+        cpu.set_flag(FLAGS6502::V, (!(cpu ^ cpu.fetched) & (cpu.a ^ cpu.temp)) & 0x0080);
+
+        // The negative flag is set to the most significant bit of the result
+        //Tawanda verify this
+        cpu.set_flag(FLAGS6502::N, cpu.temp & 0x80 != 0);
+
+        // Load the result into the accumulator (it's 8-bit dont forget!)
+        cpu.a = (cpu.temp & 0x00FF) as u8;
+
+        // This instruction has the potential to require an additional clock cycle
+        return 1;
     }
+
     fn AND(cpu: &mut cpu6502) -> u8 {
         0
     }
