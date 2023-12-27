@@ -297,7 +297,7 @@ impl cpu6502 {
         cpu.set_flag(FLAGS6502::Z, (cpu.temp & 0x00FF) == 0);
 
         // The signed Overflow flag is set based on all that up there! :D
-        cpu.set_flag(FLAGS6502::V, (!(cpu ^ cpu.fetched) & (cpu.a ^ cpu.temp)) & 0x0080);
+        cpu.set_flag(FLAGS6502::V, (!(cpu.a as u16 ^ cpu.fetched as u16) & (cpu.a as u16 ^ cpu.temp as u16)) & 0x0080 != 0);
 
         // The negative flag is set to the most significant bit of the result
         //Tawanda verify this
@@ -311,21 +311,87 @@ impl cpu6502 {
     }
 
     fn AND(cpu: &mut cpu6502) -> u8 {
-        0
+        cpu.fetch();
+        cpu.a = cpu.a & cpu.fetched;
+        cpu.set_flag(FLAGS6502::Z, cpu.a == 0x00);
+        cpu.set_flag(FLAGS6502::N, cpu.a & 0x80 != 0);
+        return 1;
     }
     fn ASL(cpu: &mut cpu6502) -> u8 {
-        0
+
+        cpu.fetch();
+        cpu.temp = (cpu.fetched << 1) as u16;
+        cpu.set_flag(FLAGS6502::C, (cpu.temp & 0xFF00) > 0);
+        cpu.set_flag(FLAGS6502::Z, (cpu.temp & 0x00FF) == 0x00);
+        cpu.set_flag(FLAGS6502::N, cpu.temp & 0x80 != 0);
+        if cpu.lookup[cpu.opcode as usize].addr_mode == cpu6502::IMP
+        {
+            cpu.a = (cpu.temp & 0x00FF) as u8;
+        } else {
+            cpu.write(cpu.addr_abs, (cpu.temp & 0x00FF) as u8);
+        }
+
+
+        return 0;
     }
     fn BCC(cpu: &mut cpu6502) -> u8 {
-        0
+        if cpu.get_flag(FLAGS6502::C) == 0
+        {
+            cpu.cycles += 1;
+            cpu.addr_abs = cpu.pc + cpu.addr_rel;
+
+            if(cpu.addr_abs & 0xFF00) != (cpu.pc & 0xFF00)
+            {
+                cpu.cycles += 1;
+            }
+
+
+            cpu.pc = cpu.addr_abs;
+        }
+        return 0;
     }
     fn BCS(cpu: &mut cpu6502) -> u8 {
-        0
+
+        if cpu.get_flag(FLAGS6502::C) == 1
+        {
+            cpu.cycles += 1;
+            cpu.addr_abs = cpu.pc + cpu.addr_rel;
+
+            if ((cpu.addr_abs & 0xFF00) != (cpu.pc & 0xFF00)) {
+                cpu.cycles += 1;
+            }
+
+
+            cpu.pc = cpu.addr_abs;
+        }
+        return 0;
+
     }
     fn BEQ(cpu: &mut cpu6502) -> u8 {
+        if cpu.get_flag(FLAGS6502::Z) == 1
+        {
+            cpu.cycles += 1;
+            cpu.addr_abs = cpu.pc + cpu.addr_rel;
+
+            if (cpu.addr_abs & 0xFF00) != (cpu.pc & 0xFF00)
+            {
+                cpu.cycles += 1;
+            }
+
+
+            cpu.pc = cpu.addr_abs;
+        }
         0
     }
     fn BIT(cpu: &mut cpu6502) -> u8 {
+
+        cpu.fetch();
+        cpu.temp = (cpu.a & cpu.fetched) as u16;
+        cpu.set_flag(FLAGS6502::Z, (cpu.temp & 0x00FF) == 0x00);
+        cpu.set_flag(FLAGS6502::N, cpu.fetched & (1 << 7) != 0);
+        cpu.set_flag(FLAGS6502::V, cpu.fetched & (1 << 6) != 0);
+
+
         0
     }
     fn BMI(cpu: &mut cpu6502) -> u8 {
