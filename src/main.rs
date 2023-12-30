@@ -1,4 +1,5 @@
 use std::fs::read;
+use std::ops::BitOr;
 use std::rc::Rc;
 
 type RamArray = [u8; 64 * 1024];
@@ -36,6 +37,7 @@ impl Bus {
 
 #[derive(Debug)]
 #[repr(i8)]
+
 enum FLAGS6502 {
     C = (1 << 0),
     // Carry Bit
@@ -2136,9 +2138,9 @@ impl cpu6502 {
     fn JSR(cpu: &mut cpu6502) -> u8 {
         cpu.pc -= 1;
 
-        cpu.write(0x0100u16 + cpu.stkp, ((cpu.pc >> 8) & 0x00FF) as u8);
+        cpu.write(0x0100u16 + (cpu.stkp as u16), ((cpu.pc >> 8) & 0x00FF) as u8);
         cpu.stkp -= 1;
-        cpu.write(0x0100u16 + cpu.stkp, (cpu.pc & 0x00FF) as u8);
+        cpu.write(0x0100u16 + (cpu.stkp as u16), (cpu.pc & 0x00FF) as u8);
         cpu.stkp -= 1;
 
         cpu.pc = cpu.addr_abs;
@@ -2214,14 +2216,14 @@ impl cpu6502 {
     }
     fn PHA(cpu: &mut cpu6502) -> u8 {
 
-        cpu.write(0x0100u16 + cpu.stkp, cpu.a);
+        cpu.write(0x0100u16 + (cpu.stkp as u16), cpu.a);
         cpu.stkp -= 1;
 
         0
     }
     fn PHP(cpu: &mut cpu6502) -> u8 {
 
-        cpu.write(0x0100u16 + cpu.stkp, cpu.status | FLAGS6502::B | FLAGS6502::U);
+        cpu.write(0x0100u16 + (cpu.stkp as u16), cpu.status | (FLAGS6502::B as u8) | (FLAGS6502::U as u8));
         cpu.set_flag(FLAGS6502::B, false);
         cpu.set_flag(FLAGS6502::U, false);
         cpu.stkp -= 1;
@@ -2232,7 +2234,7 @@ impl cpu6502 {
 
 
         cpu.stkp += 1;
-        cpu.a = cpu.read(0x0100u16 + cpu.stkp);
+        cpu.a = cpu.read(0x0100u16 + cpu.stkp as u16);
         cpu.set_flag(FLAGS6502::Z, cpu.a == 0x00);
         cpu.set_flag(FLAGS6502::N, (cpu.a & 0x80) != 0);
 
@@ -2242,7 +2244,7 @@ impl cpu6502 {
     fn PLP(cpu: &mut cpu6502) -> u8 {
 
         cpu.stkp += 1;
-        cpu.status = cpu.read(0x0100u16 + cpu.stkp);
+        cpu.status = cpu.read(0x0100u16 + cpu.stkp as u16);
         cpu.set_flag(FLAGS6502::U, true);
 
 
@@ -2287,23 +2289,23 @@ impl cpu6502 {
     fn RTI(cpu: &mut cpu6502) -> u8 {
 
         cpu.stkp += 1;
-        cpu.status = cpu.read(0x0100u16 + cpu.stkp);
-        cpu.status &= !FLAGS6502::B;
-        cpu.status &= !FLAGS6502::U;
+        cpu.status = cpu.read(0x0100u16 + cpu.stkp as u16);
+        cpu.status &= !(FLAGS6502::B as u8);
+        cpu.status &= !(FLAGS6502::U as u8);
 
         cpu.stkp += 1;
-        cpu.pc = cpu.read(0x0100u16 + cpu.stkp) as u16;
+        cpu.pc = cpu.read(0x0100u16 + cpu.stkp as u16) as u16;
         cpu.stkp += 1;
-        cpu.pc |= cpu.read(0x0100u16 + cpu.stkp) << 8;
+        cpu.pc |= (cpu.read(0x0100u16 + cpu.stkp as u16) << 8) as u16;
 
         0
     }
     fn RTS(cpu: &mut cpu6502) -> u8 {
 
         cpu.stkp += 1;
-        cpu.pc = cpu.read(0x0100u16 + cpu.stkp) as u16;
+        cpu.pc = cpu.read(0x0100u16 + cpu.stkp as u16) as u16;
         cpu.stkp += 1;
-        cpu.pc |= cpu.read(0x0100u16 + cpu.stkp) << 8;
+        cpu.pc |= (cpu.read(0x0100u16 + cpu.stkp as u16) << 8) as u16;
 
         cpu.pc += 1;
 
@@ -2322,7 +2324,7 @@ impl cpu6502 {
         cpu.temp = (cpu.a + value + cpu.get_flag(FLAGS6502::C)) as u16;
         cpu.set_flag(FLAGS6502::C, cpu.temp & 0xFF00 != 0);
         cpu.set_flag(FLAGS6502::Z, ((cpu.temp & 0x00FF) == 0));
-        cpu.set_flag(FLAGS6502::V, ((cpu.temp ^ cpu.a) & (cpu.temp ^ value) & 0x0080) != 0);
+        cpu.set_flag(FLAGS6502::V, ((cpu.temp ^ (cpu.a as u16)) & (cpu.temp ^ (value as u16)) & 0x0080) != 0);
         cpu.set_flag(FLAGS6502::N, (cpu.temp & 0x0080) != 0);
         cpu.a = (cpu.temp & 0x00FF) as u8;
 
