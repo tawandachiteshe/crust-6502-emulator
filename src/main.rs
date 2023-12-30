@@ -1,21 +1,22 @@
+use std::cell::{RefCell, RefMut};
 use std::fs::read;
+use std::num::ParseIntError;
 use std::ops::BitOr;
 use std::rc::Rc;
-
+use crate::FLAGS6502::B;
+use std::fmt::Write;
 type RamArray = [u8; 64 * 1024];
 
 struct Bus {
     ram: RamArray,
-    cpu: cpu6502,
 }
 
 impl Bus {
     fn new() -> Self {
-        let cpu = cpu6502::new();
+
 
         return Bus {
             ram: [0; 64 * 1024],
-            cpu,
         };
     }
 
@@ -66,7 +67,7 @@ struct INSTRUCTION {
     pub cycles: u8,
 }
 
-struct cpu6502 {
+struct cpu6502<'a> {
     a: u8,
     // Accumulator Register
     x: u8,
@@ -85,15 +86,15 @@ struct cpu6502 {
     opcode: u8,
     cycles: u8,
     lookup: Vec<INSTRUCTION>,
-    bus: Rc<Bus>,
+    bus: RefMut<'a, Bus>,
     clock_count: u32,
     temp: u16,
 }
 
-type cpu = cpu6502;
+type cpu<'a> = cpu6502<'a>;
 
-impl cpu6502 {
-    fn new() -> Self {
+impl cpu6502<'_> {
+    fn new(bus: RefMut<Bus>) -> Self {
         let lookup: Vec<INSTRUCTION> = vec![
             INSTRUCTION {
                 name: "BRK".to_string(),
@@ -1633,7 +1634,7 @@ impl cpu6502 {
             },
         ];
 
-        return cpu6502 {
+        return Self {
             a: 0,
             x: 0,
             y: 0,
@@ -1645,8 +1646,8 @@ impl cpu6502 {
             addr_rel: 0,
             opcode: 0,
             cycles: 0,
-            lookup: vec![],
-            bus: Rc::new(Bus::new()),
+            lookup,
+            bus,
             clock_count: 0,
             temp: 0,
         };
@@ -1711,6 +1712,8 @@ impl cpu6502 {
         0
     }
 
+
+    #[allow(arithmetic_overflow)]
     fn ABS(cpu: &mut cpu6502) -> u8 {
         let lo = cpu.read(cpu.pc);
         cpu.pc += 1;
@@ -1721,6 +1724,8 @@ impl cpu6502 {
 
         0
     }
+
+    #[allow(arithmetic_overflow)]
     fn ABX(cpu: &mut cpu6502) -> u8 {
         let lo = cpu.read(cpu.pc);
         cpu.pc += 1;
@@ -1737,6 +1742,7 @@ impl cpu6502 {
         }
     }
 
+    #[allow(arithmetic_overflow)]
     fn ABY(cpu: &mut cpu6502) -> u8 {
         let lo = cpu.read(cpu.pc);
         cpu.pc += 1;
@@ -1753,6 +1759,8 @@ impl cpu6502 {
         }
     }
 
+
+    #[allow(arithmetic_overflow)]
     fn IND(cpu: &mut cpu6502) -> u8 {
         let ptr_lo = cpu.read(cpu.pc);
         cpu.pc += 1;
@@ -1775,6 +1783,7 @@ impl cpu6502 {
         0
     }
 
+    #[allow(arithmetic_overflow)]
     fn IZX(cpu: &mut cpu6502) -> u8 {
         let t = cpu.read(cpu.pc);
         cpu.pc += 1;
@@ -1786,6 +1795,8 @@ impl cpu6502 {
 
         0
     }
+
+    #[allow(arithmetic_overflow)]
     fn IZY(cpu: &mut cpu6502) -> u8 {
         let t = cpu.read(cpu.pc);
         cpu.pc += 1;
@@ -1949,6 +1960,7 @@ impl cpu6502 {
         0
     }
 
+    #[allow(arithmetic_overflow)]
     fn BRK(cpu: &mut cpu6502) -> u8 {
         cpu.pc += 1;
 
@@ -2286,6 +2298,8 @@ impl cpu6502 {
 
         0
     }
+
+    #[allow(arithmetic_overflow)]
     fn RTI(cpu: &mut cpu6502) -> u8 {
 
         cpu.stkp += 1;
@@ -2300,6 +2314,8 @@ impl cpu6502 {
 
         0
     }
+
+    #[allow(arithmetic_overflow)]
     fn RTS(cpu: &mut cpu6502) -> u8 {
 
         cpu.stkp += 1;
@@ -2470,12 +2486,21 @@ impl cpu6502 {
         self.cycles -= 1;
     }
 
-    fn read(&self, address: u16) -> u8 {
-        self.bus.read(address, false)
+    fn read(&mut self, address: u16) -> u8 {
+
+        let bus = &self.bus;
+        let bus_mut = bus.borrow_mut();
+
+
+        bus_mut.read(address, false)
     }
 
-    fn write(&self, address: u16, value: u8) {
-        self.write(address, value)
+    fn write(&mut self, address: u16, value: u8) {
+
+        let mut bus = &self.bus;
+
+        let mut mut_bus = bus.borrow_mut();
+        mut_bus.write(address, value)
     }
 
     fn reset(&mut self) {
@@ -2564,11 +2589,98 @@ impl cpu6502 {
         return self.fetched;
     }
 
-    fn connect_bus(&mut self, bus: Rc<Bus>) {
+    fn complete(&mut self) -> bool {
+
+        self.cycles == 0
+
+    }
+
+    fn connect_bus(&mut self, bus: RefMut<'_, Bus>) {
         self.bus = bus
     }
 }
 
+
+pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+        .collect()
+}
+
+pub fn encode_hex(bytes: &[u8]) -> String {
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for &b in bytes {
+        write!(&mut s, "{:02x}", b).unwrap();
+    }
+    s
+}
+
+
+fn print_cpu(cpu: &mut cpu6502)
+{
+    println!("pc: {:02x}", cpu.pc);
+    println!("Acc register: {:02x}", cpu.a);
+    println!("X register: {:02x}", cpu.x);
+    println!("Y register: {:02x}", cpu.y);
+    println!("Stack Register: {:02x}", cpu.status);
+    println!("Stack Pointer: {:02x}", cpu.stkp);
+    println!("cycles: {:02x}", cpu.cycles);
+    println!("Cycles comeplete: {:?}", cpu.complete());
+}
+
 fn main() {
+
+    let mut bus_option = Rc::new(RefCell::new(Bus::new()));
+    let mut bus_mut = bus_option.borrow_mut();
+
+
+    let mut code_assemble_bin = String::from("A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA");
+    let code_assemble_bin = code_assemble_bin.replace(" ", "");
+
+    let code_bin_result = decode_hex(code_assemble_bin.as_str());
+
+    let code_bin = code_bin_result.expect("failed to get result");
+
+    let mut ram_offset = 0x8000;
+
+    let mut cpu = cpu6502::new(bus_option.borrow_mut());
+
+
+    for byte_code in code_bin {
+
+        bus_mut.write(ram_offset, byte_code);
+
+
+        ram_offset += 1;
+    }
+
+
+
+    bus_mut.write(0xFFFC, 0x00);
+    bus_mut.write(0xFFFC, 0x80);
+
+
+    for i in 0x8000..ram_offset {
+
+        print!(" {:02x} ", bus_mut.read(i, true))
+
+    }
+
+
+    loop {
+
+        cpu.clock();
+        if cpu.complete() {
+            break;
+        }
+    }
+
+    print_cpu(&mut cpu);
+
+
+
+
+
     println!("Hello, world! {:?}", FLAGS6502::N as i8);
 }
