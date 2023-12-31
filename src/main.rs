@@ -1663,6 +1663,7 @@ impl cpu6502 {
     fn set_flag(&mut self, f: FLAGS6502, v: bool) {
         if v {
             self.status |= f as u8
+
         } else {
             self.status &= !(f as u8)
         }
@@ -1711,11 +1712,11 @@ impl cpu6502 {
     }
 
 
-    #[allow(arithmetic_overflow)]
+    
     fn ABS(cpu: &mut cpu6502) -> u8 {
-        let lo = cpu.read(cpu.pc);
+        let lo = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
-        let hi = cpu.read(cpu.pc);
+        let hi = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
 
         cpu.addr_abs = ((hi << 8) | lo) as u16;
@@ -1723,11 +1724,11 @@ impl cpu6502 {
         0
     }
 
-    #[allow(arithmetic_overflow)]
+    
     fn ABX(cpu: &mut cpu6502) -> u8 {
-        let lo = cpu.read(cpu.pc);
+        let lo = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
-        let hi = cpu.read(cpu.pc);
+        let hi = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
 
         cpu.addr_abs = ((hi << 8) | lo) as u16;
@@ -1740,17 +1741,17 @@ impl cpu6502 {
         }
     }
 
-    #[allow(arithmetic_overflow)]
+    
     fn ABY(cpu: &mut cpu6502) -> u8 {
-        let lo = cpu.read(cpu.pc);
+        let lo = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
-        let hi = cpu.read(cpu.pc);
+        let hi = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
 
-        cpu.addr_abs = ((hi << 8) | lo) as u16;
+        cpu.addr_abs = ((hi << 8) | lo) ;
         cpu.addr_abs += cpu.y as u16;
 
-        if (cpu.addr_abs & 0xFF00) != (hi << 8) as u16 {
+        if (cpu.addr_abs & 0xFF00) != (hi << 8) {
             1
         } else {
             0
@@ -1758,11 +1759,11 @@ impl cpu6502 {
     }
 
 
-    #[allow(arithmetic_overflow)]
+    
     fn IND(cpu: &mut cpu6502) -> u8 {
-        let ptr_lo = cpu.read(cpu.pc);
+        let ptr_lo = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
-        let ptr_hi = cpu.read(cpu.pc);
+        let ptr_hi = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
 
         let ptr = (ptr_hi << 8) | ptr_lo;
@@ -1770,42 +1771,41 @@ impl cpu6502 {
         if ptr_lo == 0x00FF
         // Simulate page boundary hardware bug
         {
-            cpu.addr_abs =
-                ((cpu.read((ptr & 0xFFu8) as u16) << 8) | cpu.read((ptr + 0) as u16)) as u16;
+            cpu.addr_abs = (cpu.read(ptr & 0xFFu16) as u16) << 8 | (cpu.read(ptr + 0) as u16);
         } else
         // Behave normally
         {
-            cpu.addr_abs = ((cpu.read((ptr + 1) as u16) << 8) | cpu.read((ptr + 0) as u16)) as u16;
+            cpu.addr_abs = ((cpu.read(ptr + 1) as u16) << 8) | (cpu.read(ptr + 0) as u16);
         }
 
         0
     }
 
-    #[allow(arithmetic_overflow)]
+    
     fn IZX(cpu: &mut cpu6502) -> u8 {
-        let t = cpu.read(cpu.pc);
+        let t = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
 
-        let lo = cpu.read(((t + cpu.x) & 0x00FF) as u16);
-        let hi = cpu.read(((t + cpu.x + 1) & 0x00FF) as u16);
+        let lo = cpu.read(((t + (cpu.x as u16)) & 0x00FF)) as u16;
+        let hi = cpu.read(((t + ((cpu.x as u16) + 1u16)) & 0x00FF)) as u16;
 
         cpu.addr_abs = ((hi << 8) | lo) as u16;
 
         0
     }
 
-    #[allow(arithmetic_overflow)]
+    
     fn IZY(cpu: &mut cpu6502) -> u8 {
-        let t = cpu.read(cpu.pc);
+        let t = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
 
-        let lo = cpu.read((t & 0x00FF) as u16);
-        let hi = cpu.read(((t + 1) & 0x00FF) as u16);
+        let lo = cpu.read((t & 0x00FF)) as u16;
+        let hi = cpu.read(((t + 1) & 0x00FF)) as u16;
 
-        cpu.addr_abs = ((hi << 8) | lo) as u16;
+        cpu.addr_abs = ((hi << 8) | lo);
         cpu.addr_abs += cpu.y as u16;
 
-        if (cpu.addr_abs & 0xFF00) != (hi << 8) as u16 {
+        if (cpu.addr_abs & 0xFF00) != (hi << 8) {
             1
         } else {
             0
@@ -1958,7 +1958,7 @@ impl cpu6502 {
         0
     }
 
-    #[allow(arithmetic_overflow)]
+    
     fn BRK(cpu: &mut cpu6502) -> u8 {
         cpu.pc += 1;
 
@@ -1973,7 +1973,7 @@ impl cpu6502 {
         cpu.stkp -= 1;
         cpu.set_flag(FLAGS6502::B, false);
 
-        cpu.pc = cpu.read(0xFFFE) as u16 | (cpu.read(0xFFFF) << 8) as u16;
+        cpu.pc = (cpu.read(0xFFFE) as u16) | ((cpu.read(0xFFFF) as u16) << 8);
 
         0
     }
@@ -2173,6 +2173,7 @@ impl cpu6502 {
         cpu.set_flag(FLAGS6502::Z, cpu.x == 0x00);
         cpu.set_flag(FLAGS6502::N, (cpu.x & 0x80) != 0);
 
+
         1
     }
     fn LDY(cpu: &mut cpu6502) -> u8 {
@@ -2288,7 +2289,7 @@ impl cpu6502 {
         0
     }
 
-    #[allow(arithmetic_overflow)]
+    
     fn RTI(cpu: &mut cpu6502) -> u8 {
         cpu.stkp += 1;
         cpu.status = cpu.read(0x0100u16 + cpu.stkp as u16);
@@ -2298,17 +2299,17 @@ impl cpu6502 {
         cpu.stkp += 1;
         cpu.pc = cpu.read(0x0100u16 + cpu.stkp as u16) as u16;
         cpu.stkp += 1;
-        cpu.pc |= (cpu.read(0x0100u16 + cpu.stkp as u16) << 8) as u16;
+        cpu.pc |= (cpu.read(0x0100u16 + cpu.stkp as u16) as u16) << 8;
 
         0
     }
 
-    #[allow(arithmetic_overflow)]
+    
     fn RTS(cpu: &mut cpu6502) -> u8 {
         cpu.stkp += 1;
         cpu.pc = cpu.read(0x0100u16 + cpu.stkp as u16) as u16;
         cpu.stkp += 1;
-        cpu.pc |= (cpu.read(0x0100u16 + cpu.stkp as u16) << 8) as u16;
+        cpu.pc |= (cpu.read(0x0100u16 + cpu.stkp as u16) as u16) << 8;
 
         cpu.pc += 1;
 
@@ -2474,7 +2475,7 @@ impl cpu6502 {
     }
 
 
-    #[allow(arithmetic_overflow)]
+    
     fn reset(&mut self) {
         // Get address to set program counter to
         self.addr_abs = 0xFFFC;
@@ -2507,7 +2508,7 @@ impl cpu6502 {
         self.cycles = 8;
     }
 
-    #[allow(arithmetic_overflow)]
+    
     fn irq(&mut self) {
         if (self.get_flag(FLAGS6502::I) == 0) {
             // Push the program counter to the stack. It's 16-bits dont
@@ -2529,8 +2530,8 @@ impl cpu6502 {
 
             // Read new program counter location from fixed address
             self.addr_abs = 0xFFFE;
-            let lo = self.read(self.addr_abs + 0);
-            let hi = self.read(self.addr_abs + 1);
+            let lo = self.read(self.addr_abs + 0) as u16;
+            let hi = self.read(self.addr_abs + 1) as u16;
             self.pc = ((hi << 8u16) | lo) as u16;
 
             // IRQs take time
@@ -2538,7 +2539,7 @@ impl cpu6502 {
         }
     }
 
-    #[allow(arithmetic_overflow)]
+  //  #[allow(arithmetic_overflow)]
     fn nmi(&mut self) {
         self.write(
             0x0100u16 + self.stkp as u16,
@@ -2555,8 +2556,8 @@ impl cpu6502 {
         self.stkp -= 1;
 
         self.addr_abs = 0xFFFA;
-        let lo = self.read(self.addr_abs + 0);
-        let hi = self.read(self.addr_abs + 1);
+        let lo = self.read(self.addr_abs + 0) as u16;
+        let hi = self.read(self.addr_abs + 1) as u16;
         self.pc = ((hi << 8) | lo) as u16;
 
         self.cycles = 8;
@@ -2564,7 +2565,7 @@ impl cpu6502 {
 
     fn fetch(&mut self) -> u8 {
         if !(self.lookup[self.opcode as usize].addr_mode == cpu::IMP) {
-            self.fetched = self.read(self.addr_abs);
+            self.fetched = self.read(self.addr_abs - 1);
         }
 
         return self.fetched;
@@ -2602,11 +2603,10 @@ fn print_cpu(cpu: &mut cpu6502)
     println!("Acc register: {:02x}", cpu.a);
     println!("X register: {:02x}", cpu.x);
     println!("Y register: {:02x}", cpu.y);
-    println!("Stack Register: {:02x}", cpu.status);
+    println!("Status Register: {:02x}", cpu.status);
     println!("Stack Pointer: {:02x}", cpu.stkp);
     println!("cycles: {:02x}", cpu.cycles);
     println!("fetched: {}", cpu.fetched);
-    println!("status: {:?}", cpu.status);
     println!("Cycles comeplete: {:?}", cpu.complete());
 }
 
@@ -2634,6 +2634,7 @@ fn main() {
     cpu.bus.write(0xFFFD, 0x80);
 
 
+
     cpu.reset();
 
 
@@ -2641,20 +2642,21 @@ fn main() {
         print!(" {:02x} ", cpu.bus.read(i, true))
     }
 
-    for i in 0..20 {
+    for i in 0..10 {
 
         loop {
             cpu.clock();
 
             let x = cpu.x as u8;
 
-            // print_cpu(&mut cpu);
-
             if cpu.complete() {
                 break;
             }
         }
 
+        println!("------------------------");
+        print_cpu(&mut cpu);
+        println!("------------------------");
 
 
     }
