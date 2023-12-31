@@ -36,7 +36,7 @@ impl Bus {
 }
 
 #[derive(Debug)]
-#[repr(i8)]
+#[repr(u8)]
 enum FLAGS6502 {
     C = (1 << 0),
     // Carry Bit
@@ -2424,10 +2424,12 @@ impl cpu6502 {
 
     fn clock(&mut self) {
 
-        println!("{}", self.pc);
-
         if self.cycles == 0 {
             self.opcode = self.read(self.pc);
+
+
+            println!("{}", self.lookup[self.opcode as usize].name);
+
 
             // Always set the unused status flag bit to 1
             self.set_flag(FLAGS6502::U, true);
@@ -2451,6 +2453,8 @@ impl cpu6502 {
 
             // Always set the unused status flag bit to 1
             self.set_flag(FLAGS6502::U, true);
+
+            println!("Value: {:02x}", self.read(self.addr_abs));
         }
 
         // Increment global clock count - This is actually unused unless logging is enabled
@@ -2474,11 +2478,18 @@ impl cpu6502 {
     fn reset(&mut self) {
         // Get address to set program counter to
         self.addr_abs = 0xFFFC;
-        let lo = self.read(self.addr_abs + 0);
-        let hi = self.read(self.addr_abs + 1);
+
+
+
+        let lo = self.read(self.addr_abs + 0) as u16;
+        let hi = self.read(self.addr_abs + 1) as u16;
+
+        println!("lo: {}, hi: {}", lo, hi);
 
         // Set it
-        self.pc = ((hi << 8) | lo) as u16;
+        self.pc = ((hi << 8) | lo);
+
+        println!("pc: {}", self.pc);
 
         // Reset internal registers
         self.a = 0;
@@ -2496,6 +2507,7 @@ impl cpu6502 {
         self.cycles = 8;
     }
 
+    #[allow(arithmetic_overflow)]
     fn irq(&mut self) {
         if (self.get_flag(FLAGS6502::I) == 0) {
             // Push the program counter to the stack. It's 16-bits dont
@@ -2526,6 +2538,7 @@ impl cpu6502 {
         }
     }
 
+    #[allow(arithmetic_overflow)]
     fn nmi(&mut self) {
         self.write(
             0x0100u16 + self.stkp as u16,
@@ -2564,8 +2577,6 @@ impl cpu6502 {
     fn connect_bus(&mut self, bus: Bus) {
         self.bus = bus
     }
-
-
 }
 
 
@@ -2594,6 +2605,8 @@ fn print_cpu(cpu: &mut cpu6502)
     println!("Stack Register: {:02x}", cpu.status);
     println!("Stack Pointer: {:02x}", cpu.stkp);
     println!("cycles: {:02x}", cpu.cycles);
+    println!("fetched: {}", cpu.fetched);
+    println!("status: {:?}", cpu.status);
     println!("Cycles comeplete: {:?}", cpu.complete());
 }
 
@@ -2608,7 +2621,6 @@ fn main() {
     let mut ram_offset = 0x8000;
 
     let mut cpu = cpu6502::new();
-    cpu.reset();
 
 
     for byte_code in code_bin {
@@ -2618,24 +2630,33 @@ fn main() {
         ram_offset += 1;
     }
 
-
     cpu.bus.write(0xFFFC, 0x00);
     cpu.bus.write(0xFFFD, 0x80);
+
+
+    cpu.reset();
 
 
     for i in 0x8000..ram_offset {
         print!(" {:02x} ", cpu.bus.read(i, true))
     }
 
+    for i in 0..20 {
 
-    loop {
-        cpu.clock();
+        loop {
+            cpu.clock();
 
-        print_cpu(&mut cpu);
+            let x = cpu.x as u8;
 
-        if cpu.complete() {
-            break;
+            // print_cpu(&mut cpu);
+
+            if cpu.complete() {
+                break;
+            }
         }
+
+
+
     }
 
 
