@@ -2600,9 +2600,9 @@ pub fn encode_hex(bytes: &[u8]) -> String {
 fn print_cpu(cpu: &mut cpu6502)
 {
     println!("pc: {:02x}", cpu.pc);
-    println!("Acc register: {:02x}", cpu.a);
-    println!("X register: {:02x}", cpu.x);
-    println!("Y register: {:02x}", cpu.y);
+    println!("Acc register: {:02x} [{}]", cpu.a, cpu.a);
+    println!("X register: {:02x} [{}]", cpu.x, cpu.x);
+    println!("Y register: {:02x} [{}]", cpu.y, cpu.y);
     println!("Status Register: {:02x}", cpu.status);
     println!("Stack Pointer: {:02x}", cpu.stkp);
     println!("cycles: {:02x}", cpu.cycles);
@@ -2611,7 +2611,7 @@ fn print_cpu(cpu: &mut cpu6502)
 }
 
 fn main() {
-    let mut code_assemble_bin = String::from("A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA");
+    let mut code_assemble_bin = String::from("A9 14 8E 01 00 69 01 EA EA EA");
     let code_assemble_bin = code_assemble_bin.replace(" ", "");
 
     let code_bin_result = decode_hex(code_assemble_bin.as_str());
@@ -2642,7 +2642,7 @@ fn main() {
         print!(" {:02x} ", cpu.bus.read(i, true))
     }
 
-    for i in 0..10 {
+    for i in 0..5 {
 
         loop {
             cpu.clock();
@@ -2657,6 +2657,7 @@ fn main() {
         println!("------------------------");
         print_cpu(&mut cpu);
         println!("------------------------");
+
 
 
     }
