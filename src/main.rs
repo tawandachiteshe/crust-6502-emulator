@@ -1,5 +1,4 @@
 use std::cell::{RefCell, RefMut};
-use std::fs::read;
 use std::num::ParseIntError;
 use std::ops::BitOr;
 use std::rc::Rc;
@@ -1853,7 +1852,7 @@ impl cpu6502 {
     }
     fn ASL(cpu: &mut cpu6502) -> u8 {
         cpu.fetch();
-        cpu.temp = (cpu.fetched << 1) as u16;
+        cpu.temp = ((cpu.fetched as u16) << 1);
         cpu.set_flag(FLAGS6502::C, (cpu.temp & 0xFF00) > 0);
         cpu.set_flag(FLAGS6502::Z, (cpu.temp & 0x00FF) == 0x00);
         cpu.set_flag(FLAGS6502::N, cpu.temp & 0x80 != 0);
@@ -2321,13 +2320,13 @@ impl cpu6502 {
         // Operating in 16-bit domain to capture carry out
 
         // We can invert the bottom 8 bits with bitwise xor
-        let value = (cpu.fetched) ^ 0x00FF;
+        let value = (cpu.fetched as u16) ^ 0x00FF;
 
         // Notice this is exactly the same as addition from here!
-        cpu.temp = (cpu.a + value + cpu.get_flag(FLAGS6502::C)) as u16;
+        cpu.temp = ((cpu.a as u16) + value + (cpu.get_flag(FLAGS6502::C) as u16));
         cpu.set_flag(FLAGS6502::C, cpu.temp & 0xFF00 != 0);
         cpu.set_flag(FLAGS6502::Z, ((cpu.temp & 0x00FF) == 0));
-        cpu.set_flag(FLAGS6502::V, ((cpu.temp ^ (cpu.a as u16)) & (cpu.temp ^ (value as u16)) & 0x0080) != 0);
+        cpu.set_flag(FLAGS6502::V, ((cpu.temp ^ (cpu.a as u16)) & (cpu.temp ^ (value)) & 0x0080) != 0);
         cpu.set_flag(FLAGS6502::N, (cpu.temp & 0x0080) != 0);
         cpu.a = (cpu.temp & 0x00FF) as u8;
 
@@ -2603,7 +2602,7 @@ fn print_cpu(cpu: &mut cpu6502)
     println!("Acc register: {:02x} [{}]", cpu.a, cpu.a);
     println!("X register: {:02x} [{}]", cpu.x, cpu.x);
     println!("Y register: {:02x} [{}]", cpu.y, cpu.y);
-    println!("Status Register: {:02x}", cpu.status);
+    println!("Status Register: {:02x} [{}]", cpu.status, cpu.status);
     println!("Stack Pointer: {:02x}", cpu.stkp);
     println!("cycles: {:02x}", cpu.cycles);
     println!("fetched: {}", cpu.fetched);
