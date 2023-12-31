@@ -5,6 +5,7 @@ use std::ops::BitOr;
 use std::rc::Rc;
 use crate::FLAGS6502::B;
 use std::fmt::Write;
+
 type RamArray = [u8; 64 * 1024];
 
 struct Bus {
@@ -13,8 +14,6 @@ struct Bus {
 
 impl Bus {
     fn new() -> Self {
-
-
         return Bus {
             ram: [0; 64 * 1024],
         };
@@ -38,7 +37,6 @@ impl Bus {
 
 #[derive(Debug)]
 #[repr(i8)]
-
 enum FLAGS6502 {
     C = (1 << 0),
     // Carry Bit
@@ -67,7 +65,7 @@ struct INSTRUCTION {
     pub cycles: u8,
 }
 
-struct cpu6502<'a> {
+struct cpu6502 {
     a: u8,
     // Accumulator Register
     x: u8,
@@ -86,15 +84,15 @@ struct cpu6502<'a> {
     opcode: u8,
     cycles: u8,
     lookup: Vec<INSTRUCTION>,
-    bus: RefMut<'a, Bus>,
+    bus: Bus,
     clock_count: u32,
     temp: u16,
 }
 
-type cpu<'a> = cpu6502<'a>;
+type cpu = cpu6502;
 
-impl cpu6502<'_> {
-    fn new(bus: RefMut<Bus>) -> Self {
+impl cpu6502 {
+    fn new() -> Self {
         let lookup: Vec<INSTRUCTION> = vec![
             INSTRUCTION {
                 name: "BRK".to_string(),
@@ -1647,7 +1645,7 @@ impl cpu6502<'_> {
             opcode: 0,
             cycles: 0,
             lookup,
-            bus,
+            bus: Bus::new(),
             clock_count: 0,
             temp: 0,
         };
@@ -2203,7 +2201,6 @@ impl cpu6502<'_> {
     }
 
     fn NOP(cpu: &mut cpu6502) -> u8 {
-
         let return_code = match cpu.opcode {
             0x1C => { 1 }
             0x3C => { 1 }
@@ -2211,14 +2208,13 @@ impl cpu6502<'_> {
             0x7C => { 1 }
             0xDC => { 1 }
             0xFC => { 1 }
-            _ => {0}
+            _ => { 0 }
         };
 
         return_code
     }
 
     fn ORA(cpu: &mut cpu6502) -> u8 {
-
         cpu.fetch();
         cpu.a = cpu.a | cpu.fetched;
         cpu.set_flag(FLAGS6502::Z, cpu.a == 0x00);
@@ -2227,14 +2223,12 @@ impl cpu6502<'_> {
         1
     }
     fn PHA(cpu: &mut cpu6502) -> u8 {
-
         cpu.write(0x0100u16 + (cpu.stkp as u16), cpu.a);
         cpu.stkp -= 1;
 
         0
     }
     fn PHP(cpu: &mut cpu6502) -> u8 {
-
         cpu.write(0x0100u16 + (cpu.stkp as u16), cpu.status | (FLAGS6502::B as u8) | (FLAGS6502::U as u8));
         cpu.set_flag(FLAGS6502::B, false);
         cpu.set_flag(FLAGS6502::U, false);
@@ -2243,8 +2237,6 @@ impl cpu6502<'_> {
         0
     }
     fn PLA(cpu: &mut cpu6502) -> u8 {
-
-
         cpu.stkp += 1;
         cpu.a = cpu.read(0x0100u16 + cpu.stkp as u16);
         cpu.set_flag(FLAGS6502::Z, cpu.a == 0x00);
@@ -2254,7 +2246,6 @@ impl cpu6502<'_> {
     }
 
     fn PLP(cpu: &mut cpu6502) -> u8 {
-
         cpu.stkp += 1;
         cpu.status = cpu.read(0x0100u16 + cpu.stkp as u16);
         cpu.set_flag(FLAGS6502::U, true);
@@ -2264,10 +2255,9 @@ impl cpu6502<'_> {
     }
 
     fn ROL(cpu: &mut cpu6502) -> u8 {
-
         cpu.fetch();
         cpu.temp = ((cpu.get_flag(FLAGS6502::C) << 7) | (cpu.fetched >> 1)) as u16;
-        cpu.set_flag(FLAGS6502::C, (cpu.fetched & 0x01) != 0 );
+        cpu.set_flag(FLAGS6502::C, (cpu.fetched & 0x01) != 0);
         cpu.set_flag(FLAGS6502::Z, (cpu.temp & 0x00FF) == 0x00);
         cpu.set_flag(FLAGS6502::N, (cpu.temp & 0x0080) != 0);
 
@@ -2282,10 +2272,9 @@ impl cpu6502<'_> {
         0
     }
     fn ROR(cpu: &mut cpu6502) -> u8 {
-
         cpu.fetch();
         cpu.temp = ((cpu.get_flag(FLAGS6502::C) << 7) | (cpu.fetched >> 1)) as u16;
-        cpu.set_flag(FLAGS6502::C, (cpu.fetched & 0x01) != 0 );
+        cpu.set_flag(FLAGS6502::C, (cpu.fetched & 0x01) != 0);
         cpu.set_flag(FLAGS6502::Z, (cpu.temp & 0x00FF) == 0x00);
         cpu.set_flag(FLAGS6502::N, (cpu.temp & 0x0080) != 0);
 
@@ -2301,7 +2290,6 @@ impl cpu6502<'_> {
 
     #[allow(arithmetic_overflow)]
     fn RTI(cpu: &mut cpu6502) -> u8 {
-
         cpu.stkp += 1;
         cpu.status = cpu.read(0x0100u16 + cpu.stkp as u16);
         cpu.status &= !(FLAGS6502::B as u8);
@@ -2317,7 +2305,6 @@ impl cpu6502<'_> {
 
     #[allow(arithmetic_overflow)]
     fn RTS(cpu: &mut cpu6502) -> u8 {
-
         cpu.stkp += 1;
         cpu.pc = cpu.read(0x0100u16 + cpu.stkp as u16) as u16;
         cpu.stkp += 1;
@@ -2328,7 +2315,6 @@ impl cpu6502<'_> {
         0
     }
     fn SBC(cpu: &mut cpu6502) -> u8 {
-
         cpu.fetch();
 
         // Operating in 16-bit domain to capture carry out
@@ -2347,46 +2333,38 @@ impl cpu6502<'_> {
         1
     }
     fn SEC(cpu: &mut cpu6502) -> u8 {
-
         cpu.set_flag(FLAGS6502::C, true);
 
         0
     }
     fn SED(cpu: &mut cpu6502) -> u8 {
-
         cpu.set_flag(FLAGS6502::D, true);
 
         0
     }
     fn SEI(cpu: &mut cpu6502) -> u8 {
-
         cpu.set_flag(FLAGS6502::I, true);
 
         0
     }
 
     fn STA(cpu: &mut cpu6502) -> u8 {
-
         cpu.write(cpu.addr_abs, cpu.a);
 
         0
     }
 
     fn STX(cpu: &mut cpu6502) -> u8 {
-
         cpu.write(cpu.addr_abs, cpu.x);
 
         0
     }
     fn STY(cpu: &mut cpu6502) -> u8 {
-
         cpu.write(cpu.addr_abs, cpu.y);
 
         0
     }
     fn TAX(cpu: &mut cpu6502) -> u8 {
-
-
         cpu.x = cpu.a;
 
         cpu.set_flag(FLAGS6502::Z, cpu.x == 0x00);
@@ -2395,7 +2373,6 @@ impl cpu6502<'_> {
         0
     }
     fn TAY(cpu: &mut cpu6502) -> u8 {
-
         cpu.y = cpu.a;
 
         cpu.set_flag(FLAGS6502::Z, cpu.y == 0x00);
@@ -2404,7 +2381,6 @@ impl cpu6502<'_> {
         0
     }
     fn TSX(cpu: &mut cpu6502) -> u8 {
-
         cpu.x = cpu.stkp;
 
         cpu.set_flag(FLAGS6502::Z, cpu.x == 0x00);
@@ -2415,7 +2391,6 @@ impl cpu6502<'_> {
 
 
     fn TXA(cpu: &mut cpu6502) -> u8 {
-
         cpu.a = cpu.x;
 
         cpu.set_flag(FLAGS6502::Z, cpu.a == 0x00);
@@ -2425,9 +2400,7 @@ impl cpu6502<'_> {
     }
 
 
-
     fn TXS(cpu: &mut cpu6502) -> u8 {
-
         cpu.stkp = cpu.x;
 
         0
@@ -2435,7 +2408,6 @@ impl cpu6502<'_> {
 
 
     fn TYA(cpu: &mut cpu6502) -> u8 {
-
         cpu.a = cpu.y;
 
         cpu.set_flag(FLAGS6502::Z, cpu.a == 0x00);
@@ -2451,6 +2423,9 @@ impl cpu6502<'_> {
     }
 
     fn clock(&mut self) {
+
+        println!("{}", self.pc);
+
         if self.cycles == 0 {
             self.opcode = self.read(self.pc);
 
@@ -2487,22 +2462,15 @@ impl cpu6502<'_> {
     }
 
     fn read(&mut self, address: u16) -> u8 {
-
-        let bus = &self.bus;
-        let bus_mut = bus.borrow_mut();
-
-
-        bus_mut.read(address, false)
+        self.bus.read(address, false)
     }
 
     fn write(&mut self, address: u16, value: u8) {
-
-        let mut bus = &self.bus;
-
-        let mut mut_bus = bus.borrow_mut();
-        mut_bus.write(address, value)
+        self.bus.write(address, value)
     }
 
+
+    #[allow(arithmetic_overflow)]
     fn reset(&mut self) {
         // Get address to set program counter to
         self.addr_abs = 0xFFFC;
@@ -2590,14 +2558,14 @@ impl cpu6502<'_> {
     }
 
     fn complete(&mut self) -> bool {
-
         self.cycles == 0
-
     }
 
-    fn connect_bus(&mut self, bus: RefMut<'_, Bus>) {
+    fn connect_bus(&mut self, bus: Bus) {
         self.bus = bus
     }
+
+
 }
 
 
@@ -2630,11 +2598,6 @@ fn print_cpu(cpu: &mut cpu6502)
 }
 
 fn main() {
-
-    let mut bus_option = Rc::new(RefCell::new(Bus::new()));
-    let mut bus_mut = bus_option.borrow_mut();
-
-
     let mut code_assemble_bin = String::from("A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA");
     let code_assemble_bin = code_assemble_bin.replace(" ", "");
 
@@ -2644,42 +2607,36 @@ fn main() {
 
     let mut ram_offset = 0x8000;
 
-    let mut cpu = cpu6502::new(bus_option.borrow_mut());
+    let mut cpu = cpu6502::new();
+    cpu.reset();
 
 
     for byte_code in code_bin {
-
-        bus_mut.write(ram_offset, byte_code);
+        cpu.bus.write(ram_offset, byte_code);
 
 
         ram_offset += 1;
     }
 
 
-
-    bus_mut.write(0xFFFC, 0x00);
-    bus_mut.write(0xFFFC, 0x80);
+    cpu.bus.write(0xFFFC, 0x00);
+    cpu.bus.write(0xFFFD, 0x80);
 
 
     for i in 0x8000..ram_offset {
-
-        print!(" {:02x} ", bus_mut.read(i, true))
-
+        print!(" {:02x} ", cpu.bus.read(i, true))
     }
 
 
     loop {
-
         cpu.clock();
+
+        print_cpu(&mut cpu);
+
         if cpu.complete() {
             break;
         }
     }
-
-    print_cpu(&mut cpu);
-
-
-
 
 
     println!("Hello, world! {:?}", FLAGS6502::N as i8);
