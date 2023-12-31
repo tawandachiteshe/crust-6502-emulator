@@ -1,10 +1,12 @@
 use std::cell::{RefCell, RefMut};
+use std::collections::HashMap;
 use std::num::ParseIntError;
 use std::ops::BitOr;
 use std::rc::Rc;
 use crate::FLAGS6502::B;
 use std::fmt::Write;
 use minifb::{Key, KeyRepeat, Window, WindowOptions};
+
 type RamArray = [u8; 64 * 1024];
 
 struct Bus {
@@ -1662,7 +1664,6 @@ impl cpu6502 {
     fn set_flag(&mut self, f: FLAGS6502, v: bool) {
         if v {
             self.status |= f as u8
-
         } else {
             self.status &= !(f as u8)
         }
@@ -1711,7 +1712,6 @@ impl cpu6502 {
     }
 
 
-    
     fn ABS(cpu: &mut cpu6502) -> u8 {
         let lo = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
@@ -1723,7 +1723,7 @@ impl cpu6502 {
         0
     }
 
-    
+
     fn ABX(cpu: &mut cpu6502) -> u8 {
         let lo = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
@@ -1740,14 +1740,14 @@ impl cpu6502 {
         }
     }
 
-    
+
     fn ABY(cpu: &mut cpu6502) -> u8 {
         let lo = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
         let hi = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
 
-        cpu.addr_abs = ((hi << 8) | lo) ;
+        cpu.addr_abs = ((hi << 8) | lo);
         cpu.addr_abs += cpu.y as u16;
 
         if (cpu.addr_abs & 0xFF00) != (hi << 8) {
@@ -1758,7 +1758,6 @@ impl cpu6502 {
     }
 
 
-    
     fn IND(cpu: &mut cpu6502) -> u8 {
         let ptr_lo = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
@@ -1780,7 +1779,7 @@ impl cpu6502 {
         0
     }
 
-    
+
     fn IZX(cpu: &mut cpu6502) -> u8 {
         let t = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
@@ -1793,7 +1792,7 @@ impl cpu6502 {
         0
     }
 
-    
+
     fn IZY(cpu: &mut cpu6502) -> u8 {
         let t = cpu.read(cpu.pc) as u16;
         cpu.pc += 1;
@@ -1957,7 +1956,7 @@ impl cpu6502 {
         0
     }
 
-    
+
     fn BRK(cpu: &mut cpu6502) -> u8 {
         cpu.pc += 1;
 
@@ -2288,7 +2287,7 @@ impl cpu6502 {
         0
     }
 
-    
+
     fn RTI(cpu: &mut cpu6502) -> u8 {
         cpu.stkp += 1;
         cpu.status = cpu.read(0x0100u16 + cpu.stkp as u16);
@@ -2303,7 +2302,7 @@ impl cpu6502 {
         0
     }
 
-    
+
     fn RTS(cpu: &mut cpu6502) -> u8 {
         cpu.stkp += 1;
         cpu.pc = cpu.read(0x0100u16 + cpu.stkp as u16) as u16;
@@ -2423,7 +2422,6 @@ impl cpu6502 {
     }
 
     fn clock(&mut self) {
-
         if self.cycles == 0 {
             self.opcode = self.read(self.pc);
 
@@ -2474,11 +2472,9 @@ impl cpu6502 {
     }
 
 
-    
     fn reset(&mut self) {
         // Get address to set program counter to
         self.addr_abs = 0xFFFC;
-
 
 
         let lo = self.read(self.addr_abs + 0) as u16;
@@ -2507,7 +2503,7 @@ impl cpu6502 {
         self.cycles = 8;
     }
 
-    
+
     fn irq(&mut self) {
         if (self.get_flag(FLAGS6502::I) == 0) {
             // Push the program counter to the stack. It's 16-bits dont
@@ -2538,7 +2534,7 @@ impl cpu6502 {
         }
     }
 
-  //  #[allow(arithmetic_overflow)]
+    //  #[allow(arithmetic_overflow)]
     fn nmi(&mut self) {
         self.write(
             0x0100u16 + self.stkp as u16,
@@ -2579,8 +2575,115 @@ impl cpu6502 {
     }
 
 
-    
+    fn disassemble(&mut self, start: u16, stop: u16) -> HashMap<u16, String> {
+        let mut addr = start;
+        let mut value = 0x00u8;
+        let mut lo = 0x00u8;
+        let mut hi = 0x00u8;
 
+        let mut line_addr = 0u16;
+
+        let mut map_lines: HashMap<u16, String> = HashMap::new();
+
+        while addr <= stop {
+            line_addr = addr;
+
+            let mut addr_hex = std::format!("${:4x}: ", addr);
+
+            let opcode = self.bus.read(addr, true) as usize;
+            addr += 1;
+
+            addr_hex.push_str(std::format!("{} ", self.lookup[opcode].name).as_str());
+
+            if self.lookup[opcode].addr_mode == cpu::IMP
+            {
+                addr_hex.push_str(" {IMP}");
+            }
+            else if self.lookup[opcode].addr_mode == cpu::IMM
+            {
+                value = self.bus.read(addr, true); addr += 1;
+
+                addr_hex.push_str(std::format!("#${:2x} {{IMM}}", value).as_str());
+
+            }
+            else if self.lookup[opcode].addr_mode == cpu::ZP0
+            {
+                lo = self.bus.read(addr, true); addr += 1;
+                hi = 0x00;
+                addr_hex.push_str(std::format!("${:2x} {{ZP0}}", lo).as_str());
+            }
+            else if self.lookup[opcode].addr_mode == cpu::ZPX
+            {
+                lo = self.bus.read(addr, true); addr += 1;
+                hi = 0x00;
+                addr_hex.push_str(std::format!("${:2x} {{ZPX}}", lo).as_str());
+            }
+            else if self.lookup[opcode].addr_mode == cpu::ZPY
+            {
+                lo = self.bus.read(addr, true); addr += 1;
+                hi = 0x00;
+                addr_hex.push_str(std::format!("${:2x}, Y {{ZPY}}", lo).as_str());
+            }
+            else if self.lookup[opcode].addr_mode == cpu::IZX
+            {
+                lo = self.bus.read(addr, true); addr += 1;
+                hi = 0x00;
+                addr_hex.push_str(std::format!("(${:2x}, X) {{IZX}}", lo).as_str());
+            }
+            else if self.lookup[opcode].addr_mode == cpu::IZY
+            {
+                lo = self.bus.read(addr, true); addr += 1;
+                hi = 0x00;
+                addr_hex.push_str(std::format!("(${:2x}, Y) {{IZY}}", lo).as_str());
+            }
+            else if self.lookup[opcode].addr_mode == cpu::ABS
+            {
+                lo = self.bus.read(addr, true); addr += 1;
+                hi = self.bus.read(addr, true); addr += 1;
+                addr_hex.push_str(std::format!("${:4x} {{ABS}}", ((hi << 8) as u16) | (lo as u16)).as_str());
+            }
+            else if self.lookup[opcode].addr_mode == cpu::ABX
+            {
+
+                lo = self.bus.read(addr, true); addr += 1;
+                hi = self.bus.read(addr, true); addr += 1;
+                addr_hex.push_str(std::format!("${:4x}, X {{ABX}}", ((hi << 8) as u16) | (lo as u16)).as_str());
+
+            }
+            else if self.lookup[opcode].addr_mode == cpu::ABY
+            {
+
+                lo = self.bus.read(addr, true); addr += 1;
+                hi = self.bus.read(addr, true); addr += 1;
+                addr_hex.push_str(std::format!("${:4x}, Y {{ABY}}", ((hi << 8) as u16) | (lo as u16)).as_str());
+
+            }
+            else if self.lookup[opcode].addr_mode == cpu::IND
+            {
+                lo = self.bus.read(addr, true); addr += 1;
+                hi = self.bus.read(addr, true); addr += 1;
+                addr_hex.push_str(std::format!("$({:4x}) {{IND}}", ((hi << 8) as u16) | (lo as u16)).as_str());
+            }
+            else if self.lookup[opcode].addr_mode == cpu::REL
+            {
+                value =  self.bus.read(addr, true); addr += 1;
+
+                addr_hex.push_str(std::format!("$[{:4x}] {{REL}}", (addr + (value as u16))).as_str());
+
+            }
+
+            // Add the formed string to a std::map, using the instruction's
+            // address as the key. This makes it convenient to look for later
+            // as the instructions are variable in length, so a straight up
+            // incremental index is not sufficient.
+
+            map_lines.insert(line_addr, addr_hex);
+
+        }
+
+
+        return map_lines;
+    }
 }
 
 
@@ -2617,41 +2720,36 @@ const WIDTH: usize = 800;
 const HEIGHT: usize = 600;
 
 fn draw_cpu(status: &StatusText, cpu: &cpu6502, screen: &mut Vec<u32>, x: u32, y: u32) {
+    status.draw(screen, (x as usize, y as usize), "STATUS: ", 1);
 
-    status.draw(screen,  (x as usize, y as usize),"STATUS: ", 1);
 
+    status.draw(screen, ((x + 64) as usize, (y) as usize), "N", if cpu.status & (FLAGS6502::N as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
+    status.draw(screen, ((x + 80) as usize, (y) as usize), "V", if cpu.status & (FLAGS6502::V as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
+    status.draw(screen, ((x + 96) as usize, (y) as usize), "-", if cpu.status & (FLAGS6502::U as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
+    status.draw(screen, ((x + 112) as usize, (y) as usize), "B", if cpu.status & (FLAGS6502::B as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
+    status.draw(screen, ((x + 128) as usize, (y) as usize), "D", if cpu.status & (FLAGS6502::D as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
+    status.draw(screen, ((x + 144) as usize, (y) as usize), "I", if cpu.status & (FLAGS6502::I as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
+    status.draw(screen, ((x + 160) as usize, (y) as usize), "Z", if cpu.status & (FLAGS6502::Z as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
+    status.draw(screen, ((x + 178) as usize, (y) as usize), "C", if cpu.status & (FLAGS6502::C as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
 
-    status.draw(screen,  ((x + 64) as usize, (y) as usize), "N", if cpu.status & (FLAGS6502::N as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
-    status.draw(screen,  ((x + 80) as usize, (y) as usize), "V", if cpu.status & (FLAGS6502::V as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
-    status.draw(screen,  ((x + 96) as usize, (y) as usize), "-", if cpu.status & (FLAGS6502::U as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
-    status.draw(screen,  ((x + 112) as usize, (y) as usize), "B", if cpu.status & (FLAGS6502::B as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
-    status.draw(screen,  ((x + 128) as usize, (y) as usize), "D",if cpu.status & (FLAGS6502::D as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF } );
-    status.draw(screen,  ((x + 144) as usize, (y) as usize), "I",if cpu.status & (FLAGS6502::I as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF } );
-    status.draw(screen,  ((x + 160) as usize, (y) as usize), "Z",if cpu.status & (FLAGS6502::Z as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
-    status.draw(screen,  ((x + 178) as usize, (y) as usize), "C",if cpu.status & (FLAGS6502::C as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
-
-    status.draw(screen,  (x as usize, (y + 10) as usize), std::format!("PC: ${:4x}", cpu.pc).as_str(), 1);
-    status.draw(screen,  (x as usize, (y + 20) as usize), std::format!("A : ${:2x}", cpu.a).as_str(), 1);
-    status.draw(screen,  (x as usize, (y + 30) as usize), std::format!("X : ${:2x}", cpu.x).as_str(), 1);
-    status.draw(screen,  (x as usize, (y + 40) as usize), std::format!("Y : ${:2x}", cpu.y).as_str(), 1);
-    status.draw(screen,  (x as usize, (y + 50) as usize), std::format!("Stack P: ${:4x}", cpu.stkp).as_str(),1 );
-
+    status.draw(screen, (x as usize, (y + 10) as usize), std::format!("PC: ${:4x}", cpu.pc).as_str(), 1);
+    status.draw(screen, (x as usize, (y + 20) as usize), std::format!("A : ${:2x}", cpu.a).as_str(), 1);
+    status.draw(screen, (x as usize, (y + 30) as usize), std::format!("X : ${:2x}", cpu.x).as_str(), 1);
+    status.draw(screen, (x as usize, (y + 40) as usize), std::format!("Y : ${:2x}", cpu.y).as_str(), 1);
+    status.draw(screen, (x as usize, (y + 50) as usize), std::format!("Stack P: ${:4x}", cpu.stkp).as_str(), 1);
 }
 
 fn draw_ram(status: &StatusText, cpu: &cpu6502, screen: &mut Vec<u32>, x: u32, y: u32, addr: u16, rows: u32, columns: u32)
 {
-
     let mut ram_x = x as usize;
     let mut ram_y = y as usize;
     let mut naddr = addr;
 
 
     for row in 0..rows {
-
         let mut offset = std::format!("${:4x}:", naddr);
 
         for column in 0..columns {
-
             offset.push_str(std::format!(" {:2x}", cpu.bus.read(naddr, true)).as_str());
 
             naddr += 1;
@@ -2659,9 +2757,12 @@ fn draw_ram(status: &StatusText, cpu: &cpu6502, screen: &mut Vec<u32>, x: u32, y
 
         status.draw(screen, (ram_x, ram_y), offset.as_str(), 1);
         ram_y += 10;
-
     }
+}
 
+fn draw_code(status: &StatusText, cpu: &cpu6502, screen: &mut Vec<u32>, x: u32, y: u32, lines: u32, map_lines: HashMap<u16, String>) {
+
+    
 
 
 }
@@ -2709,18 +2810,14 @@ fn main() {
     let status_text = StatusText::new(WIDTH, HEIGHT, 1);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
-
         if window.is_key_pressed(Key::R, KeyRepeat::No) {
-
             cpu.reset();
-
         }
 
         if window.is_key_pressed(Key::Space, KeyRepeat::No) {
             loop {
-                
                 cpu.clock();
-                
+
                 if cpu.complete() {
                     break;
                 }
@@ -2730,10 +2827,7 @@ fn main() {
 
         draw_ram(&status_text, &cpu, &mut buffer, 2, 2, 0x0000, 16, 16);
         draw_ram(&status_text, &cpu, &mut buffer, 2, 182, 0x8000, 16, 16);
-        draw_cpu(&status_text, &cpu, &mut buffer,448, 2);
-        
-
-
+        draw_cpu(&status_text, &cpu, &mut buffer, 448, 2);
 
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
@@ -2745,7 +2839,6 @@ fn main() {
 
     println!("Hello, world! {:?}", FLAGS6502::N as i8);
 }
-
 
 
 pub struct StatusText {
