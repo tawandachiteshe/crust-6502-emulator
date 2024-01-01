@@ -2591,7 +2591,7 @@ impl cpu6502 {
         while (addr as u32) <= 0xFFFF {
             line_addr = addr;
 
-            let mut addr_hex = std::format!("${:4x}: ", addr);
+            let mut addr_hex = std::format!("${:04x}: ", addr);
 
             let opcode = self.bus.read(addr, true) as usize;
             addr += 1;
@@ -2606,71 +2606,71 @@ impl cpu6502 {
                 value = self.bus.read(addr, true);
                 addr += 1;
 
-                addr_hex.push_str(std::format!("#${:2x} {}", value, "{IMM}").as_str());
+                addr_hex.push_str(std::format!("#${:02x} {}", value, "{IMM}").as_str());
             } else if self.lookup[opcode].addr_mode == cpu::ZP0
             {
                 lo = self.bus.read(addr, true);
                 addr += 1;
                 hi = 0x00;
-                addr_hex.push_str(std::format!("${:2x} {}", lo, "{ZP0}").as_str());
+                addr_hex.push_str(std::format!("${:02x} {}", lo, "{ZP0}").as_str());
             } else if self.lookup[opcode].addr_mode == cpu::ZPX
             {
                 lo = self.bus.read(addr, true);
                 addr += 1;
                 hi = 0x00;
-                addr_hex.push_str(std::format!("${:2x} {}", lo, "{ZPX}").as_str());
+                addr_hex.push_str(std::format!("${:02x} {}", lo, "{ZPX}").as_str());
             } else if self.lookup[opcode].addr_mode == cpu::ZPY
             {
                 lo = self.bus.read(addr, true);
                 addr += 1;
                 hi = 0x00;
-                addr_hex.push_str(std::format!("${:2x}, Y {}", lo, "{ZPY}").as_str());
+                addr_hex.push_str(std::format!("${:02x}, Y {}", lo, "{ZPY}").as_str());
             } else if self.lookup[opcode].addr_mode == cpu::IZX
             {
                 lo = self.bus.read(addr, true);
                 addr += 1;
                 hi = 0x00;
-                addr_hex.push_str(std::format!("(${:2x}, X) {}", lo, "{IZX}").as_str());
+                addr_hex.push_str(std::format!("(${:02x}, X) {}", lo, "{IZX}").as_str());
             } else if self.lookup[opcode].addr_mode == cpu::IZY
             {
                 lo = self.bus.read(addr, true);
                 addr += 1;
                 hi = 0x00;
-                addr_hex.push_str(std::format!("(${:2x}, Y) {}", lo, "{IZY}").as_str());
+                addr_hex.push_str(std::format!("(${:02x}, Y) {}", lo, "{IZY}").as_str());
             } else if self.lookup[opcode].addr_mode == cpu::ABS
             {
                 lo = self.bus.read(addr, true);
                 addr += 1;
                 hi = self.bus.read(addr, true);
                 addr += 1;
-                addr_hex.push_str(std::format!("${:4x} {}", ((hi as u16) << 8) | (lo as u16), "{ABS}").as_str());
+                addr_hex.push_str(std::format!("${:04x} {}", ((hi as u16) << 8) | (lo as u16), "{ABS}").as_str());
             } else if self.lookup[opcode].addr_mode == cpu::ABX
             {
                 lo = self.bus.read(addr, true);
                 addr += 1;
                 hi = self.bus.read(addr, true);
                 addr += 1;
-                addr_hex.push_str(std::format!("${:4x}, X {}", (((hi as u16) << 8) as u16) | (lo as u16), "{ABX}").as_str());
+                addr_hex.push_str(std::format!("${:04x}, X {}", (((hi as u16) << 8) as u16) | (lo as u16), "{ABX}").as_str());
             } else if self.lookup[opcode].addr_mode == cpu::ABY
             {
                 lo = self.bus.read(addr, true);
                 addr += 1;
                 hi = self.bus.read(addr, true);
                 addr += 1;
-                addr_hex.push_str(std::format!("${:4x}, Y {}", (((hi as u16) << 8) as u16) | (lo as u16), "{ABY}").as_str());
+                addr_hex.push_str(std::format!("${:04x}, Y {}", (((hi as u16) << 8) as u16) | (lo as u16), "{ABY}").as_str());
             } else if self.lookup[opcode].addr_mode == cpu::IND
             {
                 lo = self.bus.read(addr, true);
                 addr += 1;
                 hi = self.bus.read(addr, true);
                 addr += 1;
-                addr_hex.push_str(std::format!("$({:4x}) {}", ((hi as u16) << 8) | (lo as u16), "{IND}").as_str());
+                addr_hex.push_str(std::format!("$({:04x}) {}", ((hi as u16) << 8) | (lo as u16), "{IND}").as_str());
             } else if self.lookup[opcode].addr_mode == cpu::REL
             {
                 value = self.bus.read(addr, true);
                 addr += 1;
 
-                addr_hex.push_str(std::format!("$[{:4x}] {}", (addr + (value as u16)), "{REL}").as_str());
+                addr_hex.push_str(std::format!("$[{:04x}] {}", (addr + (value as u16)), "{REL}").as_str());
             }
 
             if addr == (0xFFFF - 1) {
@@ -2749,11 +2749,11 @@ fn draw_cpu(status: &StatusText, cpu: &cpu6502, screen: &mut Vec<u32>, x: u32, y
     status.draw(screen, ((x + 160) as usize, (y) as usize), "Z", if cpu.status & (FLAGS6502::Z as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
     status.draw(screen, ((x + 178) as usize, (y) as usize), "C", if cpu.status & (FLAGS6502::C as u8) != 0 { 0xFF00FFFF } else { 0xFF0000FF });
 
-    status.draw(screen, (x as usize, (y + 10) as usize), std::format!("PC: ${:4x}", cpu.pc).as_str(), 1);
-    status.draw(screen, (x as usize, (y + 20) as usize), std::format!("A : ${:2x}", cpu.a).as_str(), 1);
-    status.draw(screen, (x as usize, (y + 30) as usize), std::format!("X : ${:2x}", cpu.x).as_str(), 1);
-    status.draw(screen, (x as usize, (y + 40) as usize), std::format!("Y : ${:2x}", cpu.y).as_str(), 1);
-    status.draw(screen, (x as usize, (y + 50) as usize), std::format!("Stack P: ${:4x}", cpu.stkp).as_str(), 1);
+    status.draw(screen, (x as usize, (y + 10) as usize), std::format!("PC: ${:04x}", cpu.pc).as_str(), 1);
+    status.draw(screen, (x as usize, (y + 20) as usize), std::format!("A : ${:02x}", cpu.a).as_str(), 1);
+    status.draw(screen, (x as usize, (y + 30) as usize), std::format!("X : ${:02x}", cpu.x).as_str(), 1);
+    status.draw(screen, (x as usize, (y + 40) as usize), std::format!("Y : ${:02x}", cpu.y).as_str(), 1);
+    status.draw(screen, (x as usize, (y + 50) as usize), std::format!("Stack P: ${:#04x}", cpu.stkp).as_str(), 1);
 }
 
 fn draw_ram(status: &StatusText, cpu: &cpu6502, screen: &mut Vec<u32>, x: u32, y: u32, addr: u16, rows: u32, columns: u32)
@@ -2764,10 +2764,10 @@ fn draw_ram(status: &StatusText, cpu: &cpu6502, screen: &mut Vec<u32>, x: u32, y
 
 
     for row in 0..rows {
-        let mut offset = std::format!("${:4x}:", naddr);
+        let mut offset = std::format!("${:04x}:", naddr);
 
         for column in 0..columns {
-            offset.push_str(std::format!(" {:2x}", cpu.bus.read(naddr, true)).as_str());
+            offset.push_str(std::format!(" {:02x}", cpu.bus.read(naddr, true)).as_str());
 
             naddr += 1;
         }
