@@ -1,11 +1,13 @@
 use std::cell::{RefCell, RefMut};
-use std::collections::HashMap;
+use std::collections::{Bound, BTreeMap, HashMap};
 use std::num::ParseIntError;
 use std::ops::BitOr;
 use std::rc::Rc;
 use crate::FLAGS6502::B;
-use std::fmt::Write;
+use std::fmt::{Debug, LowerHex, Write};
 use minifb::{Key, KeyRepeat, Window, WindowOptions};
+#[macro_use(concat_string)]
+extern crate concat_string;
 
 type RamArray = [u8; 64 * 1024];
 
@@ -2575,7 +2577,7 @@ impl cpu6502 {
     }
 
 
-    fn disassemble(&mut self, start: u16, stop: u16) -> HashMap<u16, String> {
+    fn disassemble(&mut self, start: u16, stop: u16) -> BTreeMap<u16, String> {
         let mut addr = start;
         let mut value = 0x00u8;
         let mut lo = 0x00u8;
@@ -2583,15 +2585,15 @@ impl cpu6502 {
 
         let mut line_addr = 0u16;
 
-        let mut map_lines: HashMap<u16, String> = HashMap::new();
+        let mut map_lines: BTreeMap<u16, String> = BTreeMap::new();
 
-        while addr <= stop {
+        while (addr as u32) <= 0xFFFF {
             line_addr = addr;
 
             let mut addr_hex = std::format!("${:4x}: ", addr);
 
             let opcode = self.bus.read(addr, true) as usize;
-            addr += 1;
+            addr+=1;
 
             addr_hex.push_str(std::format!("{} ", self.lookup[opcode].name).as_str());
 
@@ -2603,51 +2605,51 @@ impl cpu6502 {
             {
                 value = self.bus.read(addr, true); addr += 1;
 
-                addr_hex.push_str(std::format!("#${:2x} {{IMM}}", value).as_str());
+                addr_hex.push_str(std::format!("#${:2x} {}", value, "{IMM}").as_str());
 
             }
             else if self.lookup[opcode].addr_mode == cpu::ZP0
             {
                 lo = self.bus.read(addr, true); addr += 1;
                 hi = 0x00;
-                addr_hex.push_str(std::format!("${:2x} {{ZP0}}", lo).as_str());
+                addr_hex.push_str(std::format!("${:2x} {}", lo, "{ZP0}").as_str());
             }
             else if self.lookup[opcode].addr_mode == cpu::ZPX
             {
                 lo = self.bus.read(addr, true); addr += 1;
                 hi = 0x00;
-                addr_hex.push_str(std::format!("${:2x} {{ZPX}}", lo).as_str());
+                addr_hex.push_str(std::format!("${:2x} {}", lo, "{ZPX}").as_str());
             }
             else if self.lookup[opcode].addr_mode == cpu::ZPY
             {
                 lo = self.bus.read(addr, true); addr += 1;
                 hi = 0x00;
-                addr_hex.push_str(std::format!("${:2x}, Y {{ZPY}}", lo).as_str());
+                addr_hex.push_str(std::format!("${:2x}, Y {}", lo, "{ZPY}").as_str());
             }
             else if self.lookup[opcode].addr_mode == cpu::IZX
             {
                 lo = self.bus.read(addr, true); addr += 1;
                 hi = 0x00;
-                addr_hex.push_str(std::format!("(${:2x}, X) {{IZX}}", lo).as_str());
+                addr_hex.push_str(std::format!("(${:2x}, X) {}", lo, "{IZX}").as_str());
             }
             else if self.lookup[opcode].addr_mode == cpu::IZY
             {
                 lo = self.bus.read(addr, true); addr += 1;
                 hi = 0x00;
-                addr_hex.push_str(std::format!("(${:2x}, Y) {{IZY}}", lo).as_str());
+                addr_hex.push_str(std::format!("(${:2x}, Y) {}", lo, "{IZY}").as_str());
             }
             else if self.lookup[opcode].addr_mode == cpu::ABS
             {
                 lo = self.bus.read(addr, true); addr += 1;
                 hi = self.bus.read(addr, true); addr += 1;
-                addr_hex.push_str(std::format!("${:4x} {{ABS}}", ((hi << 8) as u16) | (lo as u16)).as_str());
+                addr_hex.push_str(std::format!("${:4x} {}", ((hi as u16) << 8) | (lo as u16), "{ABS}").as_str());
             }
             else if self.lookup[opcode].addr_mode == cpu::ABX
             {
 
                 lo = self.bus.read(addr, true); addr += 1;
                 hi = self.bus.read(addr, true); addr += 1;
-                addr_hex.push_str(std::format!("${:4x}, X {{ABX}}", ((hi << 8) as u16) | (lo as u16)).as_str());
+                addr_hex.push_str(std::format!("${:4x}, X {}", (((hi as u16) << 8) as u16) | (lo as u16), "{ABX}").as_str());
 
             }
             else if self.lookup[opcode].addr_mode == cpu::ABY
@@ -2655,21 +2657,25 @@ impl cpu6502 {
 
                 lo = self.bus.read(addr, true); addr += 1;
                 hi = self.bus.read(addr, true); addr += 1;
-                addr_hex.push_str(std::format!("${:4x}, Y {{ABY}}", ((hi << 8) as u16) | (lo as u16)).as_str());
+                addr_hex.push_str(std::format!("${:4x}, Y {}", (((hi as u16) << 8) as u16) | (lo as u16), "{ABY}").as_str());
 
             }
             else if self.lookup[opcode].addr_mode == cpu::IND
             {
                 lo = self.bus.read(addr, true); addr += 1;
                 hi = self.bus.read(addr, true); addr += 1;
-                addr_hex.push_str(std::format!("$({:4x}) {{IND}}", ((hi << 8) as u16) | (lo as u16)).as_str());
+                addr_hex.push_str(std::format!("$({:4x}) {}", ((hi as u16) << 8) | (lo as u16), "{IND}").as_str());
             }
             else if self.lookup[opcode].addr_mode == cpu::REL
             {
                 value =  self.bus.read(addr, true); addr += 1;
 
-                addr_hex.push_str(std::format!("$[{:4x}] {{REL}}", (addr + (value as u16))).as_str());
+                addr_hex.push_str(std::format!("$[{:4x}] {}", (addr + (value as u16)), "{REL}").as_str());
 
+            }
+
+            if addr == (0xFFFF - 1) {
+                break;
             }
 
             // Add the formed string to a std::map, using the instruction's
@@ -2682,8 +2688,11 @@ impl cpu6502 {
         }
 
 
+
+
         return map_lines;
     }
+
 }
 
 
@@ -2702,6 +2711,21 @@ pub fn encode_hex(bytes: &[u8]) -> String {
     s
 }
 
+fn to_hex<T: LowerHex>(number : T, d: u16) -> String {
+
+    let mut s = String::new();
+
+    if d == 2 {
+        write!(&mut s, "{:02x}", number).unwrap();
+    }
+
+    if d == 4 {
+        write!(&mut s, "{:04x}", number).unwrap();
+    }
+
+    s
+
+}
 
 fn print_cpu(cpu: &mut cpu6502)
 {
@@ -2760,16 +2784,51 @@ fn draw_ram(status: &StatusText, cpu: &cpu6502, screen: &mut Vec<u32>, x: u32, y
     }
 }
 
-fn draw_code(status: &StatusText, cpu: &cpu6502, screen: &mut Vec<u32>, x: u32, y: u32, lines: u32, map_lines: HashMap<u16, String>) {
+fn draw_code(status: &StatusText, cpu: &cpu6502, screen: &mut Vec<u32>, x: u32, y: u32, lines: u32, map_lines: &BTreeMap<u16, String>) {
 
-    
+    let mut line_y = (lines >> 1) * 10 + y;
+
+    if let Some(instruction) = map_lines.get(&cpu.pc) {
+
+        status.draw(screen, (x as usize, line_y as usize), instruction,0x00FF00FF);
+
+        while line_y < (lines * 10) + y {
+            line_y += 10;
+            if let Some(next_asm) = map_lines.range((Bound::Excluded(&cpu.pc), Bound::Unbounded)).next() {
+                status.draw(screen, (x as usize, line_y as usize), next_asm.1,1);
+            } else {
+                break;
+            }
+        }
+
+    }
+
+   line_y = (lines >> 1) * 10 + y;
+
+    if let Some(instruction) = map_lines.get(&cpu.pc) {
+
+
+        line_y = (lines >> 1) * 10 + y;
+        while line_y > y {
+
+            line_y -= 10;
+
+            if let Some(prev_asm) = map_lines.range((Bound::Unbounded, Bound::Excluded(&cpu.pc))).next_back() {
+                status.draw(screen, (x as usize, line_y as usize), prev_asm.1,1);
+            } else {
+                break;
+            }
+        }
+
+    }
+
 
 
 }
 
 
 fn main() {
-    let mut code_assemble_bin = String::from("A9 01 8D 00 02 A9 05 8D 01 02 A9 08 8D 02 02 EA EA EA");
+    let mut code_assemble_bin = String::from("A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA");
     let code_assemble_bin = code_assemble_bin.replace(" ", "");
 
     let code_bin_result = decode_hex(code_assemble_bin.as_str());
@@ -2786,8 +2845,17 @@ fn main() {
         ram_offset += 1;
     }
 
+    let mut value = 0;
+
+    while value <= 0xFFFF {
+
+        value += 1;
+    }
+
+
     cpu.bus.write(0xFFFC, 0x00);
     cpu.bus.write(0xFFFD, 0x80);
+    let map_lines = cpu.disassemble(0x0000, 0xFFFF);
 
     cpu.reset();
 
@@ -2828,7 +2896,10 @@ fn main() {
         draw_ram(&status_text, &cpu, &mut buffer, 2, 2, 0x0000, 16, 16);
         draw_ram(&status_text, &cpu, &mut buffer, 2, 182, 0x8000, 16, 16);
         draw_cpu(&status_text, &cpu, &mut buffer, 448, 2);
+        draw_code(&status_text, &cpu, &mut buffer, 448, 72, 26, &map_lines);
 
+
+        status_text.draw(&mut buffer, (10, 370), "SPACE = Step Instruction    R = RESET    I = IRQ    N = NMI", 1);
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window
