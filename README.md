@@ -4,6 +4,8 @@ A MOS 6502 CPU emulator in Rust, with a small debugger window. I wrote it over C
 (first opcode on 24 December, first program running on the 31st) to learn how a CPU actually
 executes code.
 
+![Debugger window: RAM pages on the left, registers and disassembly on the right](docs/debugger.png)
+
 ## What it does
 
 - All 56 official 6502 instructions across 12 addressing modes, with cycle counts per opcode
